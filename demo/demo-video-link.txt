@@ -1,6 +1,4 @@
-https://youtu.be/your-demo-video-link-here
-
-Replace the URL above with a link to your demo video.
+[REQUIRED INPUT: Hosted demo video URL (YouTube/Loom/Box). Local recording available at presentation/demo_video.webm]
 
 Accepted platforms:
   - YouTube (public or unlisted)
@@ -13,3 +11,4 @@ Video requirements:
   - Must show the application running (not just slides)
   - Should walk through at least one key feature end-to-end
   - Audio narration strongly recommended
+

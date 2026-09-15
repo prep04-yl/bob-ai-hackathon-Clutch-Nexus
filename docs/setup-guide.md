@@ -4,76 +4,131 @@
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have the following installed on your machine:
 
-- [ ] [e.g., Python 3.11+]
-- [ ] [e.g., Node.js 18+]
-- [ ] [e.g., Docker Desktop]
-- [ ] [e.g., An IBM Cloud account with watsonx.ai access]
+- [x] Python 3.11+ (with `pip`)
+- [x] Node.js 18+ (with `npm`)
+- [x] Git
+- [x] Web browser (Google Chrome, Microsoft Edge, or Mozilla Firefox)
+
+---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in the values:
+Copy `src/.env.example` to `src/backend/.env` (or `src/.env`) if configuring optional cloud API keys:
 
 ```bash
-cp .env.example .env
+cp src/.env.example src/.env
 ```
 
-| Variable | Description | Required |
-|---|---|---|
-| `WATSONX_API_KEY` | Your IBM watsonx.ai API key | Yes |
-| `WATSONX_PROJECT_ID` | Your watsonx.ai project ID | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `SLACK_WEBHOOK_URL` | Slack webhook for alerts | No |
+| Variable | Description | Required | Default / Fallback Behavior |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Google Gemini AI Studio API key | No | Uses deterministic rule-based response engine if unconfigured |
+| `GEMINI_MODEL` | Override Gemini model name | No | `gemini-3.6-flash` |
+| `WATSONX_API_KEY` | IBM watsonx.ai API key | No | Uses deterministic rule-based response engine if unconfigured |
+| `WATSONX_PROJECT_ID` | IBM watsonx.ai project ID | No | Uses deterministic rule-based response engine if unconfigured |
+| `WATSONX_URL` | IBM Cloud region endpoint | No | `https://us-south.ml.cloud.ibm.com` |
+| `DATABASE_URL` | SQLite database URI | No | `sqlite:///./supply_chain.db` |
+
+> ℹ️ **Note:** All core functions (Impact Cascade, OR-Tools CP-SAT fleet solver, Cold Chain excursion monitor, What-If simulator, topology map) operate 100% locally with zero external API credentials required.
+
+---
 
 ## Installation
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/[your-org]/[your-repo].git
-cd [your-repo]
+git clone https://github.com/prep04-yl/bob-ai-hackathon-Clutch-Nexus.git
+cd bob-ai-hackathon-Clutch-Nexus
 
 # 2. Install backend dependencies
-[your command — e.g.: pip install -r requirements.txt]
+cd src/backend
+pip install -r requirements.txt
 
-# 3. Install frontend dependencies (if applicable)
-[your command — e.g.: cd frontend && npm install]
-
-# 4. Set up the database (if applicable)
-[your command — e.g.: python manage.py migrate]
+# 3. Install frontend dependencies
+cd ../frontend
+npm install
 ```
+
+---
 
 ## Running the Application
 
-```bash
-# Start the backend
-[your command — e.g.: uvicorn app.main:app --reload]
+### Method A: Automated Helper Scripts
 
-# Start the frontend (in a separate terminal, if applicable)
-[your command — e.g.: cd frontend && npm run dev]
+**On Windows (PowerShell):**
+```powershell
+# Open Terminal 1 (Backend):
+cd src
+.\start_backend.ps1
+
+# Open Terminal 2 (Frontend):
+cd src
+.\start_frontend.ps1
 ```
 
-The application will be available at: `http://localhost:[PORT]`
+**On Linux / macOS (Bash):**
+```bash
+# Open Terminal 1 (Backend):
+cd src
+bash start_backend.sh
+
+# Open Terminal 2 (Frontend):
+cd src
+bash start_frontend.sh
+```
+
+### Method B: Manual Command Line Execution
+
+**Terminal 1 — FastAPI Backend:**
+```bash
+cd src/backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+- API Base URL: `http://localhost:8000`
+- Interactive Swagger Docs: `http://localhost:8000/docs`
+- ReDoc Docs: `http://localhost:8000/redoc`
+
+**Terminal 2 — Next.js Frontend:**
+```bash
+cd src/frontend
+npm run dev
+```
+- Application Web UI: `http://localhost:3000`
+
+---
 
 ## Running Tests
 
-```bash
-[your test command — e.g.: pytest tests/ -v]
-```
-
-## Quick Demo (Optional)
-
-If you have a demo script or sample data to showcase the project quickly:
+Execute backend test suite via `pytest`:
 
 ```bash
-[e.g.: python demo/seed_demo_data.py]
-[e.g.: open http://localhost:8000/demo]
+cd src/backend
+pytest app/tests/ -v
 ```
+
+---
+
+## Quick Demo
+
+The backend automatically creates and seeds the SQLite database (`supply_chain.db`) with the full Mumbai Port closure scenario on initial startup:
+
+```bash
+# Verify backend data seeding:
+curl http://localhost:8000/api/v1/dashboard/kpis
+```
+
+Access the live interface at `http://localhost:3000` or inspect deployed production demo at `https://frontend-one-topaz-leaz6x1nu0.vercel.app/`.
+
+---
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| [e.g., `ModuleNotFoundError`] | [e.g., Run `pip install -r requirements.txt` again] |
-| [e.g., Database connection refused] | [e.g., Ensure PostgreSQL is running: `docker compose up db`] |
-| [e.g., watsonx.ai 401 error] | [e.g., Check `WATSONX_API_KEY` in your `.env` file] |
+| Issue | Cause | Solution |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'fastapi'` | Virtual environment not active or dependencies missing | Run `pip install -r src/backend/requirements.txt` |
+| `ortools` solver fallback warning | Python version or OS binary mismatch for OR-Tools | App gracefully uses built-in greedy heuristic solver (`optimiser.py`). To enable full CP-SAT, ensure Python 3.11+ and run `pip install ortools`. |
+| Port 8000 or 3000 already in use | Another process running on standard dev ports | Free the port or specify custom port: `uvicorn app.main:app --port 8001` or `npm run dev -- -p 3001`. |
+| Map tiles fail to render | Offline or restricted internet connection | Ensure internet connectivity for OpenStreetMap / CartoDB dark tiles in Leaflet. |
+| AI Copilot returns `[Demo mode]` notice | Cloud AI API keys unconfigured in `.env` | Expected behavior! The system transparently uses its deterministic rule-based intelligence engine. |
+
