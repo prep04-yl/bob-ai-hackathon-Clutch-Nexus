@@ -1,4 +1,4 @@
-[REQUIRED INPUT: Hosted demo video URL (YouTube/Loom/Box). Local recording available at presentation/demo_video.webm]
+https://drive.google.com/file/d/1SYpa-YURF3Jq3RFwiwuMf_kHisMWvnjz/view?usp=drivesdk
 
 Accepted platforms:
   - YouTube (public or unlisted)
