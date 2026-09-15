@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: clutch-nexus-backend
+    runtime: python
+    region: singapore   # closest to Mumbai demo scenario
+    plan: free
+    rootDir: src/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: FRONTEND_URL
+        sync: false       # set this to your Vercel URL after first deploy
+      - key: GEMINI_API_KEY
+        sync: false       # optional — falls back to rule-based if absent
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash

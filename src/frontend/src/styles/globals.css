@@ -1,0 +1,345 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --sidebar-width: 220px;
+
+  /* Surfaces */
+  --bg-base: #060a0f;
+  --bg-raised: #0c1117;
+  --bg-elevated: #101820;
+  --bg-hover: #141e28;
+  --bg-active: #162030;
+
+  /* Borders */
+  --border-subtle: #1a2332;
+  --border-default: #1e2d3d;
+  --border-strong: #243547;
+
+  /* Text */
+  --text-primary: #e2eaf4;
+  --text-secondary: #8fa3bc;
+  --text-muted: #4a6180;
+  --text-faint: #2d4158;
+
+  /* Accent — ice blue, not violet/purple */
+  --accent: #1e7ef8;
+  --accent-dim: #0f3d7a;
+  --accent-glow: rgba(30, 126, 248, 0.12);
+
+  /* Status */
+  --red: #f43f3f;
+  --red-dim: rgba(244, 63, 63, 0.12);
+  --red-border: rgba(244, 63, 63, 0.25);
+  --orange: #fb8c00;
+  --orange-dim: rgba(251, 140, 0, 0.12);
+  --amber: #f5a623;
+  --amber-dim: rgba(245, 166, 35, 0.12);
+  --green: #26d98e;
+  --green-dim: rgba(38, 217, 142, 0.10);
+  --cyan: #00b8d4;
+  --cyan-dim: rgba(0, 184, 212, 0.10);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html { font-size: 14px; }
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'ss01', 'ss02', 'cv01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Leaflet overrides ──────────────────────────────────────────────────── */
+.leaflet-container { background: var(--bg-base) !important; }
+.leaflet-tile-pane { filter: brightness(0.55) saturate(0.4) hue-rotate(180deg); }
+
+/* ── Core component classes ───────────────────────────────────────────────── */
+
+/* Panel — primary surface */
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+}
+
+/* Card — slightly more elevated, used for data blocks */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+}
+
+.card-interactive {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.card-interactive:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.card-interactive.selected {
+  background: var(--bg-active);
+  border-color: var(--accent);
+}
+
+/* Inset cell — used inside panels */
+.inset {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.badge-red    { background: var(--red-dim);    color: var(--red);    border-color: var(--red-border); }
+.badge-orange { background: var(--orange-dim); color: var(--orange); border-color: rgba(251,140,0,0.25); }
+.badge-amber  { background: var(--amber-dim);  color: var(--amber);  border-color: rgba(245,166,35,0.25); }
+.badge-green  { background: var(--green-dim);  color: var(--green);  border-color: rgba(38,217,142,0.20); }
+.badge-cyan   { background: var(--cyan-dim);   color: var(--cyan);   border-color: rgba(0,184,212,0.20); }
+.badge-blue   { background: var(--accent-glow);color: #60a5fa;       border-color: rgba(30,126,248,0.25); }
+.badge-slate  { background: rgba(100,116,139,0.15); color: #64748b;  border-color: rgba(100,116,139,0.25); }
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s, filter 0.15s;
+  white-space: nowrap;
+}
+.btn-primary:hover { filter: brightness(1.12); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.btn-secondary:hover { background: var(--bg-active); border-color: #2d4a6a; }
+.btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-ghost:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+.data-table thead tr {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.data-table thead th {
+  padding: 8px 12px 8px 0;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.1s;
+}
+.data-table tbody tr:hover { background: var(--bg-hover); }
+.data-table tbody tr:last-child { border-bottom: none; }
+
+.data-table tbody td {
+  padding: 9px 12px 9px 0;
+  vertical-align: middle;
+  color: var(--text-secondary);
+}
+
+/* Mono digits */
+.mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px; }
+
+/* ── Risk bar ────────────────────────────────────────────────────────────── */
+.risk-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.risk-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── Pulse dot ───────────────────────────────────────────────────────────── */
+.pulse-red {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 0 rgba(244, 63, 63, 0.5);
+  animation: pulse-ring 1.4s infinite;
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 63, 0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(244, 63, 63, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 63, 0); }
+}
+
+.pulse-amber {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: pulse-amber 2s infinite;
+}
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+}
+
+/* ── Incident banner (sidebar) ───────────────────────────────────────────── */
+.incident-banner {
+  background: linear-gradient(135deg, rgba(244,63,63,0.08) 0%, rgba(251,140,0,0.05) 100%);
+  border: 1px solid var(--red-border);
+  border-radius: 5px;
+  padding: 8px 10px;
+  position: relative;
+  overflow: hidden;
+}
+.incident-banner::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--red);
+  border-radius: 3px 0 0 3px;
+}
+
+/* ── Section label ────────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Input ──────────────────────────────────────────────────────────────── */
+.input-field {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.input-field::placeholder { color: var(--text-muted); }
+.input-field:focus { border-color: var(--accent); }
+
+.select-field {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  cursor: pointer;
+}
+.select-field:focus { border-color: var(--accent); }
+
+/* ── Chart tooltip override ──────────────────────────────────────────────── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* ── Divider ────────────────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border-subtle); margin: 0; }
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease-out; }
+
+@keyframes slideRight {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+.slide-right { animation: slideRight 0.5s ease-out; }
+
+/* ── Severity left-border util ──────────────────────────────────────────── */
+.border-l-critical { border-left: 3px solid var(--red); }
+.border-l-high     { border-left: 3px solid var(--orange); }
+.border-l-medium   { border-left: 3px solid var(--amber); }
+.border-l-low      { border-left: 3px solid var(--green); }
