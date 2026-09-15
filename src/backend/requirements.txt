@@ -1,21 +1,18 @@
-fastapi==0.141.1
-uvicorn[standard]==0.52.4
-sqlalchemy==2.0.52
-pydantic==2.13.5
-pydantic-settings==2.15.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.1
+sqlalchemy>=2.0.30
+pydantic>=2.7.1
+pydantic-settings>=2.3.0
 pandas>=2.2.0
 numpy>=2.0.0
-python-multipart==0.0.32
-httpx==0.28.1
-python-dotenv==1.2.3
-aiosqlite==0.22.1
+python-multipart>=0.0.9
+httpx>=0.27.0
+python-dotenv>=1.0.1
+aiosqlite>=0.20.0
 greenlet>=3.0.3
 
-# Fleet optimisation: Pyomo + HiGHS MIP solver.
-# Both are Python 3.14-compatible (replaces OR-Tools which only supports 3.9–3.13).
-pyomo>=6.10.0
-highspy>=1.7.0
+# OR-Tools: optional fleet optimisation (CP-SAT solver).
+# Currently supports Python 3.9–3.13. The app falls back to a greedy heuristic if unavailable.
+# Uncomment if your Python is 3.9–3.13:
+# ortools==9.10.4067
 
-# Generative AI — Google Gemini (google-genai v2 SDK).
-# Set GEMINI_API_KEY in .env to enable live AI.  Falls back to rule-based text when absent.
-google-genai>=1.0.0

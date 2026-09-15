@@ -1,10 +1,3 @@
-# Load .env before importing any app modules so that os.getenv() calls in
-# those modules see the populated environment.  override=False means that
-# real environment variables (e.g. from a container/CI) are never shadowed.
-from dotenv import load_dotenv
-load_dotenv(override=False)
-
-import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -33,16 +26,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Build CORS origin list.
-# FRONTEND_URL env var allows Render to inject the Vercel production URL at
-# deploy time without requiring a code change.  Localhost origins are always
-# included so local development continues to work without any .env entry.
-_extra_origins = [o.strip() for o in os.getenv("FRONTEND_URL", "").split(",") if o.strip()]
-_cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"] + _extra_origins
+import os
+
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+if "*" in allowed_origins or not allowed_origins:
+    allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

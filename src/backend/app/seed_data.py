@@ -485,55 +485,33 @@ def seed_database(db: Session) -> None:
         db.add(shipment)
     db.flush()
 
-    # Cold-chain telemetry logs for all cold-chain shipments
+    # Cold-chain log entries (excursion for SHP-2026-0026 frozen chicken)
+    chicken_ship = db.query(models.Shipment).filter_by(tracking_id="SHP-2026-0026").first()
+    vaccine_ship = db.query(models.Shipment).filter_by(tracking_id="SHP-2026-0001").first()
     now = datetime.utcnow()
     cold_logs = []
-
-    def _add_logs(tracking_id: str, base_temp: float, drift: float,
-                  t_min: float, t_max: float, n: int, humidity: float):
-        ship = db.query(models.Shipment).filter_by(tracking_id=tracking_id).first()
-        if not ship:
-            return
-        for i in range(n):
-            temp = round(base_temp + drift * i + random.uniform(-0.2, 0.2), 2)
-            excursion = temp > t_max + 0.5 or temp < t_min - 0.5
-            severity = None
-            if excursion:
-                deviation = max(abs(temp - t_max), abs(temp - t_min))
-                severity = "critical" if deviation > 4 else "major" if deviation > 2 else "minor"
+    if chicken_ship:
+        for i in range(12):
+            temp = -16.0 + i * 0.5  # warming trend → excursion
+            excursion = temp > -12
             cold_logs.append(models.ColdChainLog(
-                shipment_id=ship.id,
-                timestamp=now - timedelta(hours=n - 1 - i),
+                shipment_id=chicken_ship.id,
+                timestamp=now - timedelta(hours=11 - i),
                 temperature_c=temp,
-                humidity_pct=round(humidity + random.uniform(-3, 3), 1),
+                humidity_pct=85,
                 is_excursion=excursion,
-                excursion_severity=severity,
+                excursion_severity="major" if excursion else None,
             ))
-
-    # SHP-2026-0026: Frozen chicken — warming trend, excursion (t_max=-12)
-    _add_logs("SHP-2026-0026", base_temp=-16.0, drift=0.5,
-              t_min=-18.0, t_max=-12.0, n=12, humidity=85)
-
-    # SHP-2026-0001: Vaccines — stable in range (2–8 °C)
-    _add_logs("SHP-2026-0001", base_temp=4.2, drift=0.05,
-              t_min=2.0, t_max=8.0, n=12, humidity=72)
-
-    # SHP-2026-0002: Insulin API — near upper limit (2–8 °C), slight upward drift
-    _add_logs("SHP-2026-0002", base_temp=6.8, drift=0.12,
-              t_min=2.0, t_max=8.0, n=10, humidity=68)
-
-    # SHP-2026-0003: Oncology drugs — deep-frozen (-20 to -15 °C), stable
-    _add_logs("SHP-2026-0003", base_temp=-17.5, drift=0.02,
-              t_min=-20.0, t_max=-15.0, n=10, humidity=60)
-
-    # SHP-2026-0011: Frozen seafood — minor upward drift (-18 to -12 °C)
-    _add_logs("SHP-2026-0011", base_temp=-15.8, drift=0.08,
-              t_min=-18.0, t_max=-12.0, n=10, humidity=80)
-
-    # SHP-2026-0024: Processed ready meals (2–6 °C) — stable
-    _add_logs("SHP-2026-0024", base_temp=4.1, drift=0.03,
-              t_min=2.0, t_max=6.0, n=8, humidity=75)
-
+    if vaccine_ship:
+        for i in range(8):
+            temp = 3.5 + random.uniform(-0.3, 0.4)
+            cold_logs.append(models.ColdChainLog(
+                shipment_id=vaccine_ship.id,
+                timestamp=now - timedelta(hours=7 - i),
+                temperature_c=round(temp, 2),
+                humidity_pct=72,
+                is_excursion=False,
+            ))
     for log in cold_logs:
         db.add(log)
 

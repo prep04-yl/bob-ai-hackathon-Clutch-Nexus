@@ -1,12 +1,13 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { apiClient, type WhatIfResult } from '@/lib/api'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer
 } from 'recharts'
-import { FlaskConical, TrendingDown, Clock, Package, ChevronRight, AlertTriangle, RefreshCw, DollarSign } from 'lucide-react'
+import { FlaskConical, TrendingDown, Clock, Package, ChevronRight } from 'lucide-react'
 
 interface ScenarioCompare {
   key: string
@@ -17,36 +18,22 @@ interface ScenarioCompare {
   risk_reduction_pct: number
 }
 
-const TOOLTIP_STYLE = {
-  background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
-  borderRadius: 5, fontSize: 11, padding: '6px 10px',
-}
+const SCENARIO_COLORS = ['#ef4444', '#3b82f6', '#8b5cf6', '#f59e0b', '#22c55e', '#ec4899']
 
 export default function WhatIfPage() {
   const [scenarios, setScenarios] = useState<ScenarioCompare[]>([])
   const [selected, setSelected] = useState<string>('reroute_jnpt')
   const [result, setResult] = useState<WhatIfResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    Promise.all([
-      apiClient.compareScenarios(),
-      apiClient.getScenarioResult('reroute_jnpt'),
-    ]).then(([c, r]) => {
-      setScenarios(c.data)
-      setResult(r.data)
-      setLoading(false)
-    }).catch((err) => {
-      setError(err?.message || 'Failed to load scenarios')
+  useEffect(() => {
+    apiClient.compareScenarios().then((r) => {
+      setScenarios(r.data)
       setLoading(false)
     })
+    loadScenario('reroute_jnpt')
   }, [])
-
-  useEffect(() => { load() }, [load])
 
   const loadScenario = (key: string) => {
     setSelected(key)
@@ -54,112 +41,70 @@ export default function WhatIfPage() {
     apiClient.getScenarioResult(key).then((r) => {
       setResult(r.data)
       setDetailLoading(false)
-    }).catch(() => setDetailLoading(false))
+    })
   }
 
-  const bestScenario = scenarios.reduce<ScenarioCompare | null>((best, s) => {
-    if (!best || s.risk_reduction_pct > best.risk_reduction_pct) return s
-    return best
-  }, null)
+  const radarData = scenarios.map((s) => ({
+    scenario: s.name.split('(')[0].trim().substring(0, 16),
+    cost: Math.max(0, 100 - (s.cost_delta_usd / 4_000_000) * 100),
+    speed: Math.max(0, 100 - (s.avg_delay_hours / 120) * 100),
+    recovery: s.shipments_recovered * 5,
+    risk: s.risk_reduction_pct,
+  }))
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div style={{ width: 32, height: 32, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center" style={{ maxWidth: 360 }}>
-          <AlertTriangle size={36} style={{ color: 'var(--red)', margin: '0 auto 12px' }} />
-          <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}>Could not load scenarios</p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>{error}</p>
-          <button onClick={load} className="btn-primary mx-auto"><RefreshCw size={12} /> Retry</button>
-        </div>
-      </div>
-    )
+  const priorityColor = (p: number) => {
+    const m: Record<number, string> = { 1: 'text-red-400', 2: 'text-orange-400', 3: 'text-blue-400', 4: 'text-slate-400' }
+    return m[p] || 'text-slate-400'
   }
 
   return (
-    <div style={{ padding: 20 }} className="fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
-        <div>
-          <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 3 }}>SCENARIO SIMULATOR</h1>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {scenarios.length} recovery scenarios · Mumbai Port closure
-          </p>
-        </div>
-        <button onClick={load} className="btn-ghost"><RefreshCw size={13} /></button>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-xl font-bold text-white">What-If Simulator</h1>
+        <p className="text-sm text-slate-400 mt-0.5">
+          Compare recovery scenarios for Mumbai Port closure disruption
+        </p>
       </div>
 
-      {/* Best scenario callout */}
-      {bestScenario && (
-        <div className="card" style={{ padding: '10px 14px', marginBottom: 12, borderColor: 'rgba(38,217,142,0.25)', background: 'rgba(38,217,142,0.04)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(38,217,142,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <TrendingDown size={15} style={{ color: 'var(--green)' }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Best risk reduction scenario</p>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginTop: 1 }}>{bestScenario.name}</p>
-          </div>
-          <div className="text-right" style={{ flexShrink: 0 }}>
-            <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)', letterSpacing: '-0.03em' }}>{bestScenario.risk_reduction_pct}%</p>
-            <p style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>RISK REDUCTION</p>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Scenario list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <p className="section-label" style={{ padding: '0 2px 4px' }}>Scenarios ({scenarios.length})</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Scenario selector */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">Scenarios</h3>
           {scenarios.map((s, i) => (
             <button
               key={s.key}
               onClick={() => loadScenario(s.key)}
-              style={{
-                width: '100%', textAlign: 'left',
-                background: selected === s.key ? 'var(--bg-active)' : 'var(--bg-elevated)',
-                border: `1px solid ${selected === s.key ? 'var(--accent)' : 'var(--border-default)'}`,
-                borderRadius: 6, padding: '9px 12px', cursor: 'pointer',
-                transition: 'background 0.15s, border-color 0.15s',
-              }}
+              className={cn(
+                'w-full text-left card p-3.5 transition-all hover:border-slate-700',
+                selected === s.key && 'border-blue-600/50 bg-blue-600/5'
+              )}
             >
-              <div className="flex items-center gap-2" style={{ marginBottom: 5 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: selected === s.key ? 'var(--accent)' : 'var(--text-muted)' }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', flex: 1, lineHeight: 1.3 }}>{s.name}</p>
-                {bestScenario?.key === s.key && (
-                  <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--green)', background: 'rgba(38,217,142,0.15)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>
-                    BEST
-                  </span>
-                )}
+              <div className="flex items-center justify-between">
+                <span
+                  style={{ background: SCENARIO_COLORS[i % SCENARIO_COLORS.length] }}
+                  className="w-2 h-2 rounded-full shrink-0"
+                />
+                <p className="text-xs font-medium text-slate-200 ml-2 flex-1 leading-snug">{s.name}</p>
+                <ChevronRight size={12} className="text-slate-600 shrink-0" />
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1" style={{ fontSize: 10 }}>
+              <div className="grid grid-cols-2 gap-1.5 mt-2.5 text-[10px]">
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Cost Δ</span>
-                  <span style={{ marginLeft: 4, color: s.cost_delta_usd > 0 ? 'var(--red)' : 'var(--green)', fontWeight: 600 }}>
+                  <span className="text-slate-600">Cost Δ</span>
+                  <span className={cn('ml-1', s.cost_delta_usd > 0 ? 'text-red-400' : 'text-green-400')}>
                     {s.cost_delta_usd > 0 ? '+' : ''}{formatCurrency(s.cost_delta_usd)}
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Delay</span>
-                  <span style={{ marginLeft: 4, color: s.avg_delay_hours <= 24 ? 'var(--green)' : s.avg_delay_hours <= 72 ? 'var(--amber)' : 'var(--orange)', fontWeight: 600 }}>
-                    {s.avg_delay_hours}h
-                  </span>
+                  <span className="text-slate-600">Delay</span>
+                  <span className="text-yellow-400 ml-1">{s.avg_delay_hours}h</span>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Recovered</span>
-                  <span style={{ marginLeft: 4, color: 'var(--green)', fontWeight: 600 }}>{s.shipments_recovered}</span>
+                  <span className="text-slate-600">Recovered</span>
+                  <span className="text-green-400 ml-1">{s.shipments_recovered}</span>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Risk ↓</span>
-                  <span style={{ marginLeft: 4, color: '#60a5fa', fontWeight: 600 }}>{s.risk_reduction_pct}%</span>
+                  <span className="text-slate-600">Risk ↓</span>
+                  <span className="text-blue-400 ml-1">{s.risk_reduction_pct}%</span>
                 </div>
               </div>
             </button>
@@ -167,40 +112,48 @@ export default function WhatIfPage() {
         </div>
 
         {/* Detail */}
-        <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Comparison charts */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Comparison bar charts */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="card" style={{ padding: '12px 14px' }}>
-              <p className="section-label" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <DollarSign size={9} /> Cost Delta (USD)
-              </p>
-              <ResponsiveContainer width="100%" height={150}>
-                <BarChart data={scenarios} barSize={14} layout="vertical">
-                  <CartesianGrid strokeDasharray="2 2" stroke="var(--border-subtle)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 8, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}K`} />
-                  <YAxis type="category" dataKey="key" tick={{ fontSize: 8, fill: 'var(--text-muted)' }} width={70} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => v.replace(/_/g,' ').substring(0,10)} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatCurrency(v), 'Cost Delta']} labelFormatter={(l) => scenarios.find(s => s.key === l)?.name || l} />
-                  <Bar dataKey="cost_delta_usd" radius={[0, 3, 3, 0]}>
-                    {scenarios.map((s, i) => <Cell key={i} fill={selected === s.key ? 'var(--accent)' : 'rgba(30,126,248,0.3)'} />)}
+            <div className="card p-4">
+              <h3 className="text-xs font-semibold text-slate-400 mb-3">Cost Delta (USD)</h3>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={scenarios} barSize={20} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
+                  <YAxis type="category" dataKey="key" tick={{ fontSize: 9, fill: '#64748b' }} width={80}
+                    tickFormatter={(v) => v.replace('_', ' ').substring(0, 12)} />
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: 11 }}
+                    formatter={(v: number) => [formatCurrency(v), 'Cost Delta']}
+                    labelFormatter={(l) => scenarios.find(s => s.key === l)?.name || l}
+                  />
+                  <Bar dataKey="cost_delta_usd" radius={[0, 4, 4, 0]}>
+                    {scenarios.map((s, i) => (
+                      <Cell key={i} fill={selected === s.key ? '#3b82f6' : '#1e40af'} />
+                    ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="card" style={{ padding: '12px 14px' }}>
-              <p className="section-label" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <TrendingDown size={9} /> Risk Reduction (%)
-              </p>
-              <ResponsiveContainer width="100%" height={150}>
-                <BarChart data={scenarios} barSize={14} layout="vertical">
-                  <CartesianGrid strokeDasharray="2 2" stroke="var(--border-subtle)" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 8, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} unit="%" />
-                  <YAxis type="category" dataKey="key" tick={{ fontSize: 8, fill: 'var(--text-muted)' }} width={70} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => v.replace(/_/g,' ').substring(0,10)} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, 'Risk Reduction']} labelFormatter={(l) => scenarios.find(s => s.key === l)?.name || l} />
-                  <Bar dataKey="risk_reduction_pct" radius={[0, 3, 3, 0]}>
-                    {scenarios.map((s, i) => <Cell key={i} fill={selected === s.key ? 'var(--green)' : 'rgba(38,217,142,0.3)'} />)}
+            <div className="card p-4">
+              <h3 className="text-xs font-semibold text-slate-400 mb-3">Risk Reduction (%)</h3>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={scenarios} barSize={20} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: '#64748b' }} unit="%" />
+                  <YAxis type="category" dataKey="key" tick={{ fontSize: 9, fill: '#64748b' }} width={80}
+                    tickFormatter={(v) => v.replace('_', ' ').substring(0, 12)} />
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: 11 }}
+                    formatter={(v: number) => [`${v}%`, 'Risk Reduction']}
+                    labelFormatter={(l) => scenarios.find(s => s.key === l)?.name || l}
+                  />
+                  <Bar dataKey="risk_reduction_pct" radius={[0, 4, 4, 0]}>
+                    {scenarios.map((s, i) => (
+                      <Cell key={i} fill={selected === s.key ? '#22c55e' : '#166534'} />
+                    ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -208,74 +161,76 @@ export default function WhatIfPage() {
           </div>
 
           {/* Selected scenario detail */}
-          {detailLoading ? (
-            <div className="card flex items-center justify-center" style={{ height: 100 }}>
-              <div style={{ width: 18, height: 18, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: 8 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading scenario…</span>
-            </div>
-          ) : result ? (
-            <div className="card" style={{ padding: '12px 14px' }}>
-              <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
-                <FlaskConical size={13} style={{ color: 'var(--accent)' }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{result.scenario_name}</p>
+          {result && !detailLoading && (
+            <div className="card p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <FlaskConical size={16} className="text-blue-400" />
+                <h3 className="text-sm font-semibold text-slate-200">{result.scenario_name}</h3>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" style={{ marginBottom: 14 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Additional Cost', value: formatCurrency(result.total_cost_delta_usd), color: result.total_cost_delta_usd > 1e6 ? 'var(--red)' : result.total_cost_delta_usd > 0 ? 'var(--orange)' : 'var(--green)' },
-                  { label: 'Avg Delay', value: `${result.avg_delay_hours}h`, color: result.avg_delay_hours <= 24 ? 'var(--green)' : result.avg_delay_hours <= 72 ? 'var(--amber)' : 'var(--orange)' },
-                  { label: 'Recovered', value: result.shipments_recovered, color: 'var(--green)' },
-                  { label: 'Risk Reduction', value: `${result.risk_reduction_pct}%`, color: result.risk_reduction_pct >= 50 ? 'var(--green)' : '#60a5fa' },
+                  { label: 'Additional Cost', value: formatCurrency(result.total_cost_delta_usd), icon: <TrendingDown size={13} />, color: result.total_cost_delta_usd > 0 ? 'text-red-400' : 'text-green-400' },
+                  { label: 'Avg Delay', value: `${result.avg_delay_hours}h`, icon: <Clock size={13} />, color: result.avg_delay_hours > 72 ? 'text-orange-400' : 'text-green-400' },
+                  { label: 'Recovered', value: result.shipments_recovered, icon: <Package size={13} />, color: 'text-green-400' },
+                  { label: 'Risk Reduction', value: `${result.risk_reduction_pct}%`, icon: <TrendingDown size={13} />, color: 'text-blue-400' },
                 ].map((m) => (
-                  <div key={m.label} className="inset" style={{ padding: '8px 10px' }}>
-                    <p style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{m.label}</p>
-                    <p style={{ fontSize: 18, fontWeight: 700, color: m.color, marginTop: 4, letterSpacing: '-0.02em' }}>{m.value}</p>
+                  <div key={m.label} className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="flex items-center gap-1 text-slate-500 text-[11px] mb-1">
+                      {m.icon} {m.label}
+                    </div>
+                    <p className={cn('text-lg font-bold', m.color)}>{m.value}</p>
                   </div>
                 ))}
               </div>
 
-              {result.recommendations.length > 0 && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 8 }}>
-                    Shipment Actions — {result.recommendations.length} records
-                  </p>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Tracking ID</th><th>Description</th><th>P</th>
-                          <th>Status</th><th>Recommended Action</th><th>Extra Days</th><th>Extra Cost</th>
+              {/* Per-shipment recommendations */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Shipment-Level Actions
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-slate-500 border-b border-slate-800">
+                        <th className="pb-2 pr-4">Tracking ID</th>
+                        <th className="pb-2 pr-4">Description</th>
+                        <th className="pb-2 pr-4">P</th>
+                        <th className="pb-2 pr-4">Current Status</th>
+                        <th className="pb-2 pr-4">Recommended Action</th>
+                        <th className="pb-2 pr-4">Extra Days</th>
+                        <th className="pb-2 pr-4">Extra Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {result.recommendations.map((r, i) => (
+                        <tr key={i}>
+                          <td className="py-2.5 pr-4 font-mono text-blue-400">{r.tracking_id}</td>
+                          <td className="py-2.5 pr-4 text-slate-300 max-w-[160px] truncate">{r.description}</td>
+                          <td className={cn('py-2.5 pr-4 font-bold', priorityColor(r.priority))}>P{r.priority}</td>
+                          <td className="py-2.5 pr-4 text-slate-400 capitalize">{r.current_status.replace('_', ' ')}</td>
+                          <td className="py-2.5 pr-4 text-slate-200">{r.action}</td>
+                          <td className={cn('py-2.5 pr-4 font-mono', r.extra_days < 0 ? 'text-green-400' : r.extra_days > 3 ? 'text-red-400' : 'text-yellow-400')}>
+                            {r.extra_days > 0 ? '+' : ''}{r.extra_days}d
+                          </td>
+                          <td className={cn('py-2.5 pr-4 font-mono', r.extra_cost_usd > 0 ? 'text-orange-400' : 'text-slate-500')}>
+                            {r.extra_cost_usd > 0 ? formatCurrency(r.extra_cost_usd) : '—'}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {result.recommendations.map((r, i) => (
-                          <tr key={i}>
-                            <td><span className="mono" style={{ color: '#60a5fa' }}>{r.tracking_id}</span></td>
-                            <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{r.description}</td>
-                            <td>
-                              <span style={{ fontWeight: 700, fontSize: 10, color: r.priority === 1 ? 'var(--red)' : 'var(--orange)' }}>P{r.priority}</span>
-                            </td>
-                            <td style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>{r.current_status.replace(/_/g,' ')}</td>
-                            <td style={{ color: 'var(--text-primary)' }}>{r.action}</td>
-                            <td>
-                              <span className="mono" style={{ color: r.extra_days < 0 ? 'var(--green)' : r.extra_days > 3 ? 'var(--red)' : 'var(--amber)' }}>
-                                {r.extra_days > 0 ? '+' : ''}{r.extra_days}d
-                              </span>
-                            </td>
-                            <td>
-                              <span className="mono" style={{ color: r.extra_cost_usd > 100000 ? 'var(--orange)' : r.extra_cost_usd > 0 ? 'var(--amber)' : 'var(--text-muted)' }}>
-                                {r.extra_cost_usd > 0 ? formatCurrency(r.extra_cost_usd) : '—'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
             </div>
-          ) : null}
+          )}
+
+          {detailLoading && (
+            <div className="card p-8 flex items-center justify-center text-slate-500 text-sm">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+              Loading scenario…
+            </div>
+          )}
         </div>
       </div>
     </div>

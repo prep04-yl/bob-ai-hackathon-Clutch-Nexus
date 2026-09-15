@@ -8,7 +8,7 @@ interface TopologyNode {
   code: string
   name: string
   city: string
-  country: string
+  country?: string
   lat: number
   lng: number
   type: string

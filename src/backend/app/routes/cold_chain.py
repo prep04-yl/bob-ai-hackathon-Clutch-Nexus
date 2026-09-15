@@ -8,33 +8,28 @@ from app.schemas import ColdChainLogOut
 router = APIRouter(prefix="/cold-chain", tags=["cold-chain"])
 
 
-# Excursion threshold — same value used everywhere so summary and shipment list stay consistent.
-_EXCURSION_TOLERANCE = 1.0   # °C above/below allowed range before flagging an excursion
-
-
 @router.get("/excursions")
 def list_excursions(db: Session = Depends(get_db)):
-    # Single join query — avoids N+1 per log entry.
     logs = (
         db.query(models.ColdChainLog)
-        .join(models.Shipment, models.ColdChainLog.shipment_id == models.Shipment.id)
-        .options(joinedload(models.ColdChainLog.shipment))
-        .filter(models.ColdChainLog.is_excursion == True)  # noqa: E712
+        .filter(models.ColdChainLog.is_excursion == True)
         .order_by(models.ColdChainLog.timestamp.desc())
         .all()
     )
     result = []
     for log in logs:
-        s = log.shipment
+        shipment = db.query(models.Shipment).filter(
+            models.Shipment.id == log.shipment_id
+        ).first()
         result.append({
             "id": log.id,
             "shipment_id": log.shipment_id,
-            "tracking_id": s.tracking_id if s else None,
-            "description": s.description if s else None,
+            "tracking_id": shipment.tracking_id if shipment else None,
+            "description": shipment.description if shipment else None,
             "timestamp": log.timestamp.isoformat(),
             "temperature_c": log.temperature_c,
-            "required_min_c": s.temp_min_c if s else None,
-            "required_max_c": s.temp_max_c if s else None,
+            "required_min_c": shipment.temp_min_c if shipment else None,
+            "required_max_c": shipment.temp_max_c if shipment else None,
             "excursion_severity": log.excursion_severity,
             "humidity_pct": log.humidity_pct,
         })
@@ -65,9 +60,8 @@ def cold_chain_shipments(db: Session = Depends(get_db)):
         )
         in_excursion = (
             s.current_temp_c is not None and s.temp_max_c is not None
-            and (s.current_temp_c > s.temp_max_c + _EXCURSION_TOLERANCE or
-                 (s.temp_min_c is not None and
-                  s.current_temp_c < s.temp_min_c - _EXCURSION_TOLERANCE))
+            and (s.current_temp_c > s.temp_max_c + 1 or
+                 (s.temp_min_c is not None and s.current_temp_c < s.temp_min_c - 1))
         )
         result.append({
             "id": s.id,
@@ -93,19 +87,10 @@ def cold_chain_summary(db: Session = Depends(get_db)):
     total_cold = db.query(models.Shipment).filter(
         models.Shipment.requires_cold_chain == True
     ).count()
-    # Count shipments whose current_temp_c is actually outside their allowed range
-    cold_shipments = db.query(models.Shipment).filter(
+    in_excursion = db.query(models.Shipment).filter(
         models.Shipment.requires_cold_chain == True,
-        models.Shipment.current_temp_c.isnot(None),
-    ).all()
-    in_excursion = sum(
-        1 for s in cold_shipments
-        if s.temp_max_c is not None and (
-            s.current_temp_c > s.temp_max_c + _EXCURSION_TOLERANCE
-            or (s.temp_min_c is not None and
-                s.current_temp_c < s.temp_min_c - _EXCURSION_TOLERANCE)
-        )
-    )
+        models.Shipment.status.in_(["at_risk", "disrupted"]),
+    ).count()
     total_excursion_events = db.query(models.ColdChainLog).filter(
         models.ColdChainLog.is_excursion == True
     ).count()

@@ -1,20 +1,15 @@
 'use client'
 import NetworkMap from '@/components/NetworkMap'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api'
 import { cn, modeIcon } from '@/lib/utils'
-import { AlertTriangle, RefreshCw, Globe } from 'lucide-react'
 
 export default function NetworkPage() {
   const [ports, setPorts] = useState<any[]>([])
   const [routes, setRoutes] = useState<any[]>([])
   const [disruptions, setDisruptions] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
+  useEffect(() => {
     Promise.all([
       apiClient.getPorts(),
       apiClient.getRoutes(),
@@ -23,153 +18,68 @@ export default function NetworkPage() {
       setPorts(p.data)
       setRoutes(r.data)
       setDisruptions(d.data)
-      setLoading(false)
-    }).catch((err) => {
-      setError(err?.message || 'Failed to load network data')
-      setLoading(false)
     })
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  const activeDisruptions = disruptions.filter(d => d.is_active)
-  const disruptedPortIds = new Set(activeDisruptions.map((d: any) => d.affected_port_id).filter(Boolean))
-  const byMode = routes.reduce((acc: Record<string, number>, r: any) => {
-    acc[r.mode] = (acc[r.mode] || 0) + 1
-    return acc
-  }, {})
-
-  const MODE_COLORS: Record<string, string> = { sea: '#60a5fa', air: 'var(--amber)', rail: '#a78bfa', road: 'var(--green)' }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div style={{ width: 32, height: 32, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center" style={{ maxWidth: 360 }}>
-          <AlertTriangle size={36} style={{ color: 'var(--red)', margin: '0 auto 12px' }} />
-          <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}>Could not load network data</p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>{error}</p>
-          <button onClick={load} className="btn-primary mx-auto"><RefreshCw size={12} /> Retry</button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div style={{ padding: 20 }} className="fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
-        <div>
-          <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 3 }}>NETWORK TOPOLOGY</h1>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {ports.length} ports · {routes.length} routes ·{' '}
-            <span style={{ color: activeDisruptions.length > 0 ? 'var(--red)' : 'var(--green)' }}>
-              {activeDisruptions.length} active disruption{activeDisruptions.length !== 1 ? 's' : ''}
-            </span>
-          </p>
-        </div>
-        <button onClick={load} className="btn-ghost"><RefreshCw size={13} /></button>
+    <div className="p-6 space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-white">Supply Chain Network</h1>
+        <p className="text-sm text-slate-400 mt-0.5">
+          {ports.length} ports · {routes.length} routes · {disruptions.filter(d => d.is_active).length} active disruptions
+        </p>
       </div>
 
-      {/* Summary strip */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2" style={{ marginBottom: 12 }}>
-        {[
-          { label: 'Total Ports', value: ports.length, color: 'var(--text-primary)' },
-          { label: 'Sea Ports', value: ports.filter((p: any) => p.type === 'sea').length, color: '#60a5fa' },
-          { label: 'Total Routes', value: routes.length, color: 'var(--text-primary)' },
-          { label: 'Air Routes', value: byMode['air'] || 0, color: 'var(--amber)' },
-          { label: 'Disrupted Ports', value: disruptedPortIds.size, color: disruptedPortIds.size > 0 ? 'var(--red)' : 'var(--green)' },
-          { label: 'Active Routes', value: routes.filter((r: any) => r.is_active).length, color: 'var(--green)' },
-        ].map(m => (
-          <div key={m.label} className="inset" style={{ padding: '8px 10px', textAlign: 'center' }}>
-            <p style={{ fontSize: 18, fontWeight: 700, color: m.color, letterSpacing: '-0.03em' }}>{m.value}</p>
-            <p style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{m.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Map */}
-        <div className="lg:col-span-3 card" style={{ height: 500, overflow: 'hidden' }}>
-          {!loading && <NetworkMap />}
+        <div className="lg:col-span-3 card overflow-hidden" style={{ height: '520px' }}>
+          <NetworkMap />
         </div>
 
         {/* Side panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 500, overflowY: 'auto' }}>
+        <div className="space-y-3 overflow-y-auto" style={{ maxHeight: '520px' }}>
           {/* Disrupted ports */}
-          <div className="card" style={{ padding: '10px 12px' }}>
-            <p className="section-label" style={{ marginBottom: 8 }}>Disrupted Ports</p>
-            {activeDisruptions.filter((d) => d.affected_port).length === 0 ? (
-              <div className="flex items-center gap-1.5" style={{ color: 'var(--green)', fontSize: 11 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-                All ports operational
-              </div>
-            ) : (
-              activeDisruptions.filter((d) => d.affected_port).map((d: any) => (
-                <div key={d.id} className="flex items-center gap-2" style={{ padding: '5px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <span className="pulse-red" style={{ width: 6, height: 6, flexShrink: 0 }} />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{d.affected_port?.code}</p>
-                    <p style={{ fontSize: 9, color: 'var(--text-muted)' }}>{d.affected_port?.city} · {d.type.replace(/_/g,' ')}</p>
-                  </div>
+          <div className="card p-3">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Disrupted Ports</h3>
+            {disruptions.filter((d) => d.is_active && d.affected_port).map((d) => (
+              <div key={d.id} className="flex items-center gap-2 py-1.5 border-b border-slate-800 last:border-0">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-white font-medium">{d.affected_port?.code}</p>
+                  <p className="text-[10px] text-slate-500 truncate">{d.affected_port?.city}</p>
                 </div>
-              ))
+              </div>
+            ))}
+            {disruptions.filter((d) => d.is_active && d.affected_port).length === 0 && (
+              <p className="text-xs text-slate-600">No port disruptions</p>
             )}
           </div>
 
-          {/* Routes by mode */}
-          <div className="card" style={{ padding: '10px 12px' }}>
-            <p className="section-label" style={{ marginBottom: 8 }}>Routes by Mode</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {Object.entries(byMode).map(([mode, count]) => (
-                <div key={mode}>
-                  <div className="flex items-center justify-between" style={{ marginBottom: 3 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                      {modeIcon(mode)} {mode}
-                    </span>
-                    <span className="mono" style={{ fontSize: 10, color: MODE_COLORS[mode] || 'var(--text-muted)', fontWeight: 600 }}>
-                      {count as number}
-                    </span>
-                  </div>
-                  <div style={{ height: 3, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ width: `${((count as number) / routes.length) * 100}%`, height: '100%', background: MODE_COLORS[mode] || 'var(--accent)', borderRadius: 2 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Active routes list */}
-          <div className="card" style={{ padding: '10px 12px' }}>
-            <p className="section-label" style={{ marginBottom: 8 }}>
-              Active Routes ({routes.filter(r => r.is_active).length})
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* Routes table */}
+          <div className="card p-3">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Routes</h3>
+            <div className="space-y-1.5">
               {routes.filter(r => r.is_active).slice(0, 12).map((r) => (
-                <div key={r.id} className="flex items-center justify-between" style={{ padding: '4px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="flex items-center gap-1" style={{ fontSize: 10 }}>
+                <div key={r.id} className="flex items-center justify-between py-1.5 border-b border-slate-800/50 last:border-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1 text-[11px]">
                       <span>{modeIcon(r.mode)}</span>
-                      <span className="mono" style={{ color: 'var(--text-secondary)' }}>
-                        {r.origin_port?.code || r.origin_port_id} → {r.destination_port?.code || r.destination_port_id}
+                      <span className="text-slate-400 font-mono">
+                        {r.origin_port?.code} → {r.destination_port?.code}
                       </span>
                     </div>
-                    <p style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>
-                      {r.transit_days}d · {r.distance_km?.toLocaleString()} km
-                    </p>
+                    <div className="text-[10px] text-slate-600 mt-0.5">
+                      {r.transit_days}d · {r.distance_km.toLocaleString()} km
+                    </div>
                   </div>
-                  <span style={{
-                    fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3, textTransform: 'capitalize',
-                    background: `${MODE_COLORS[r.mode] || 'var(--accent)'}22`,
-                    color: MODE_COLORS[r.mode] || 'var(--accent)',
-                  }}>{r.mode}</span>
+                  <span className={cn(
+                    'text-[9px] font-medium px-1.5 py-0.5 rounded capitalize',
+                    r.mode === 'sea' ? 'bg-blue-500/20 text-blue-400' :
+                    r.mode === 'air' ? 'bg-yellow-500/20 text-yellow-400' :
+                    r.mode === 'rail' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-500/20 text-slate-400'
+                  )}>
+                    {r.mode}
+                  </span>
                 </div>
               ))}
             </div>
@@ -177,41 +87,46 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      {/* Port registry */}
-      <div className="card" style={{ padding: '12px 14px', marginTop: 12 }}>
-        <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-          <Globe size={12} style={{ color: 'var(--text-muted)' }} />
-          <p className="section-label">Port Registry — {ports.length} facilities</p>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+      {/* Ports table */}
+      <div className="card p-4">
+        <h3 className="text-sm font-semibold text-slate-200 mb-3">Port Registry</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
             <thead>
-              <tr>
-                <th>Code</th><th>Name</th><th>City</th><th>Country</th>
-                <th>Type</th><th>Capacity (TEU)</th><th>Status</th>
+              <tr className="text-left text-slate-500 border-b border-slate-800">
+                <th className="pb-2 pr-4">Code</th>
+                <th className="pb-2 pr-4">Name</th>
+                <th className="pb-2 pr-4">City</th>
+                <th className="pb-2 pr-4">Country</th>
+                <th className="pb-2 pr-4">Type</th>
+                <th className="pb-2 pr-4">Capacity (TEU)</th>
+                <th className="pb-2 pr-4">Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-800/50">
               {ports.map((p) => {
-                const isDisrupted = disruptedPortIds.has(p.id)
+                const isDisrupted = disruptions.some((d) => d.is_active && d.affected_port_id === p.id)
                 return (
-                  <tr key={p.id} style={{ background: isDisrupted ? 'var(--red-dim)' : undefined }}>
-                    <td><span className="mono" style={{ color: isDisrupted ? 'var(--red)' : '#60a5fa' }}>{p.code}</span></td>
-                    <td style={{ color: 'var(--text-primary)' }}>{p.name}</td>
-                    <td>{p.city}</td>
-                    <td>{p.country}</td>
-                    <td>
-                      <span style={{ textTransform: 'capitalize', fontSize: 10 }}>{modeIcon(p.type)} {p.type}</span>
+                  <tr key={p.id} className="hover:bg-slate-800/30">
+                    <td className="py-2.5 pr-4 font-mono text-blue-400">{p.code}</td>
+                    <td className="py-2.5 pr-4 text-slate-200">{p.name}</td>
+                    <td className="py-2.5 pr-4 text-slate-400">{p.city}</td>
+                    <td className="py-2.5 pr-4 text-slate-400">{p.country}</td>
+                    <td className="py-2.5 pr-4">
+                      <span className="flex items-center gap-1 text-slate-400 capitalize">
+                        {modeIcon(p.type)} {p.type}
+                      </span>
                     </td>
-                    <td><span className="mono">{p.capacity_teu ? p.capacity_teu.toLocaleString() : '—'}</span></td>
-                    <td>
+                    <td className="py-2.5 pr-4 text-slate-300 font-mono">
+                      {p.capacity_teu ? p.capacity_teu.toLocaleString() : '—'}
+                    </td>
+                    <td className="py-2.5 pr-4">
                       {isDisrupted ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="pulse-red" style={{ width: 5, height: 5 }} />
-                          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)' }}>DISRUPTED</span>
-                        </div>
+                        <span className="flex items-center gap-1 text-red-400 font-semibold text-[10px]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> DISRUPTED
+                        </span>
                       ) : (
-                        <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)' }}>OPERATIONAL</span>
+                        <span className="text-green-400 text-[10px] font-semibold">OPERATIONAL</span>
                       )}
                     </td>
                   </tr>

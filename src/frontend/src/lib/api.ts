@@ -202,7 +202,7 @@ export const apiClient = {
   getPorts: () => api.get<Port[]>('/network/ports'),
   getRoutes: () => api.get<Route[]>('/network/routes'),
 
-  // AI — Gemini-powered, falls back to rule-based when GEMINI_API_KEY not set
+  // AI (watsonx.ai — falls back to rule-based when unconfigured)
   getAIStatus: () => api.get('/ai/status'),
   explainDisruption: (id: number) => api.get<AIResponse>(`/ai/disruptions/${id}/explain`),
   recommendActions: (id: number) => api.get<AIResponse>(`/ai/disruptions/${id}/recommend`),

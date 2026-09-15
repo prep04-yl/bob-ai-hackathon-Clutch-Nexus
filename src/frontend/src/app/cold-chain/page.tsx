@@ -1,18 +1,13 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { apiClient, type AIResponse } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Area, AreaChart
 } from 'recharts'
-import { Thermometer, AlertTriangle, Sparkles, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { Thermometer, AlertTriangle, Sparkles, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
-
-const TOOLTIP_STYLE = {
-  background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
-  borderRadius: 5, fontSize: 11, padding: '6px 10px',
-}
 
 export default function ColdChainPage() {
   const [shipments, setShipments] = useState<any[]>([])
@@ -21,14 +16,10 @@ export default function ColdChainPage() {
   const [selected, setSelected] = useState<any>(null)
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [logsLoading, setLogsLoading] = useState(false)
   const [aiAnalysis, setAiAnalysis] = useState<AIResponse | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
+  useEffect(() => {
     Promise.all([
       apiClient.getColdChainShipments(),
       apiClient.getColdChainExcursions(),
@@ -37,282 +28,224 @@ export default function ColdChainPage() {
       setShipments(s.data)
       setExcursions(e.data)
       setSummary(sum.data)
-      setLoading(false)
       if (s.data.length > 0) selectShipment(s.data[0])
-    }).catch((err) => {
-      setError(err?.message || 'Failed to load cold chain data')
       setLoading(false)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { load() }, [load])
+  }, [])
 
   const selectShipment = (s: any) => {
     setSelected(s)
-    setAiAnalysis(null)
-    setLogsLoading(true)
     apiClient.getShipmentColdChain(s.id).then((r) => {
-      setLogs(r.data.map((log: any, i: number) => ({ ...log, label: `T-${r.data.length - 1 - i}h` })))
-      setLogsLoading(false)
-    }).catch(() => setLogsLoading(false))
+      setLogs(r.data.map((log: any, i: number) => ({
+        ...log,
+        label: `T-${r.data.length - 1 - i}h`,
+      })))
+    })
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div style={{ width: 32, height: 32, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center" style={{ maxWidth: 360 }}>
-          <AlertTriangle size={36} style={{ color: 'var(--red)', margin: '0 auto 12px' }} />
-          <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}>Could not load cold chain data</p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>{error}</p>
-          <button onClick={load} className="btn-primary mx-auto"><RefreshCw size={12} /> Retry</button>
-        </div>
-      </div>
-    )
+  const excursionColor = (sev: string) => {
+    if (sev === 'critical') return 'text-red-400'
+    if (sev === 'major') return 'text-orange-400'
+    return 'text-yellow-400'
   }
 
   return (
-    <div style={{ padding: 20 }} className="fade-in">
-      {/* Header + summary */}
-      <div className="flex items-center justify-between flex-wrap gap-3" style={{ marginBottom: 16 }}>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 3 }}>COLD CHAIN MONITOR</h1>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Temperature excursion detection · compliance tracking</p>
+          <h1 className="text-xl font-bold text-white">Cold Chain Monitor</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Temperature excursion detection & compliance</p>
         </div>
-        <div className="flex items-center gap-2">
-          {summary && (
-            <>
-              {[
-                { label: 'Cold Shipments', value: summary.total_cold_chain_shipments, color: '#60a5fa' },
-                { label: 'In Excursion', value: summary.shipments_in_excursion, color: summary.shipments_in_excursion > 0 ? 'var(--red)' : 'var(--green)' },
-                { label: 'Events', value: summary.total_excursion_events, color: summary.total_excursion_events > 0 ? 'var(--orange)' : 'var(--green)' },
-              ].map((m) => (
-                <div key={m.label} className="inset" style={{ padding: '8px 14px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 18, fontWeight: 700, color: m.color, letterSpacing: '-0.03em' }}>{m.value}</p>
-                  <p style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{m.label}</p>
-                </div>
-              ))}
-            </>
-          )}
-          <button onClick={load} className="btn-ghost"><RefreshCw size={13} /></button>
-        </div>
+        {summary && (
+          <div className="flex gap-3">
+            {[
+              { label: 'Cold Chain Shipments', value: summary.total_cold_chain_shipments, color: 'text-blue-400' },
+              { label: 'In Excursion', value: summary.shipments_in_excursion, color: 'text-red-400' },
+              { label: 'Excursion Events', value: summary.total_excursion_events, color: 'text-orange-400' },
+            ].map((m) => (
+              <div key={m.label} className="card px-4 py-3 text-center">
+                <p className={cn('text-xl font-bold', m.color)}>{m.value}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{m.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Shipment list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <p className="section-label" style={{ padding: '0 2px 2px' }}>Cold-Chain Shipments ({shipments.length})</p>
-          {shipments.length === 0 && (
-            <div className="card flex items-center gap-2" style={{ padding: '20px', color: 'var(--green)' }}>
-              <CheckCircle2 size={14} /> <span style={{ fontSize: 12 }}>No cold-chain shipments</span>
-            </div>
-          )}
-          {shipments.map((s) => {
-            const isSelected = selected?.id === s.id
-            return (
-              <button
-                key={s.id}
-                onClick={() => selectShipment(s)}
-                style={{
-                  width: '100%', textAlign: 'left',
-                  background: isSelected ? 'var(--bg-active)' : 'var(--bg-elevated)',
-                  border: `1px solid ${isSelected ? 'var(--accent)' : s.in_excursion ? 'var(--red-border)' : 'var(--border-default)'}`,
-                  borderLeft: `3px solid ${s.in_excursion ? 'var(--red)' : 'var(--cyan)'}`,
-                  borderRadius: 6, padding: '9px 12px', cursor: 'pointer',
-                }}
-              >
-                <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
-                  <Thermometer size={11} style={{ color: s.in_excursion ? 'var(--red)' : 'var(--cyan)', flexShrink: 0 }} />
-                  <span className="mono" style={{ color: '#60a5fa', fontSize: 10, flex: 1 }}>{s.tracking_id}</span>
-                  {s.in_excursion ? (
-                    <span style={{ fontSize: 9, color: 'var(--red)', fontWeight: 700, letterSpacing: '0.05em' }}>⚠ EXCURSION</span>
-                  ) : (
-                    <span style={{ fontSize: 9, color: 'var(--green)', fontWeight: 600 }}>✓ OK</span>
-                  )}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
+            Cold-Chain Shipments
+          </h3>
+          {shipments.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => selectShipment(s)}
+              className={cn(
+                'w-full text-left card p-3 transition-all hover:border-slate-700',
+                selected?.id === s.id && 'border-blue-600/50 bg-blue-600/5'
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <Thermometer
+                  size={14}
+                  className={s.in_excursion ? 'text-red-400 mt-0.5' : 'text-cyan-400 mt-0.5'}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-blue-400">{s.tracking_id}</span>
+                    {s.in_excursion && (
+                      <span className="text-[10px] text-red-400 font-semibold">⚠ EXCURSION</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5 truncate">{s.description}</p>
+                  <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-500">
+                    <span>Range: {s.temp_min_c}°C to {s.temp_max_c}°C</span>
+                    {s.current_temp_c !== null && (
+                      <span className={s.in_excursion ? 'text-red-400 font-semibold' : 'text-green-400'}>
+                        Now: {s.current_temp_c}°C
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-primary)', lineHeight: 1.3 }}>{s.description}</p>
-                <div className="flex items-center justify-between" style={{ marginTop: 4 }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{s.temp_min_c}° to {s.temp_max_c}°C</span>
-                  {s.current_temp_c !== null && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: s.in_excursion ? 'var(--red)' : 'var(--green)' }}>
-                      {s.current_temp_c}°C
-                    </span>
-                  )}
-                </div>
-                {s.excursion_event_count > 0 && (
-                  <p style={{ fontSize: 10, color: 'var(--orange)', marginTop: 3 }}>
-                    {s.excursion_event_count} event{s.excursion_event_count > 1 ? 's' : ''}
-                  </p>
-                )}
-              </button>
-            )
-          })}
+              </div>
+            </button>
+          ))}
         </div>
 
-        {/* Chart + detail */}
-        <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Temperature chart */}
+        <div className="lg:col-span-2 space-y-4">
           {selected && (
             <>
-              {/* Telemetry chart */}
-              <div className="card" style={{ padding: '12px 14px' }}>
-                <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: 10 }}>
+              <div className="card p-4">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{selected.description}</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {selected.tracking_id} · Allowed: {selected.temp_min_c}°C to {selected.temp_max_c}°C
-                      {selected.current_temp_c !== null && (
-                        <span style={{ marginLeft: 6, fontWeight: 700, color: selected.in_excursion ? 'var(--red)' : 'var(--green)' }}>
-                          · Now: {selected.current_temp_c}°C
-                        </span>
-                      )}
+                    <h3 className="text-sm font-semibold text-slate-200">{selected.description}</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {selected.tracking_id} · Required: {selected.temp_min_c}°C to {selected.temp_max_c}°C
                     </p>
                   </div>
                   {selected.in_excursion && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--red-dim)', border: '1px solid var(--red-border)', borderRadius: 5 }}>
-                      <AlertTriangle size={11} style={{ color: 'var(--red)' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', letterSpacing: '0.06em' }}>TEMPERATURE EXCURSION</span>
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
+                      <AlertTriangle size={12} className="text-red-400" />
+                      <span className="text-xs text-red-400 font-semibold">TEMPERATURE EXCURSION</span>
                     </div>
                   )}
                 </div>
-
-                {logsLoading ? (
-                  <div className="flex items-center justify-center" style={{ height: 160, color: 'var(--text-muted)' }}>
-                    <div style={{ width: 16, height: 16, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: 8 }} />
-                    <span style={{ fontSize: 12 }}>Loading telemetry…</span>
-                  </div>
-                ) : logs.length > 0 ? (
+                {logs.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={logs}>
                       <defs>
                         <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="2 2" stroke="var(--border-subtle)" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} unit="°C" domain={['auto', 'auto']} axisLine={false} tickLine={false} padding={{ top: 10, bottom: 10 }} />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, _, p) => [
-                        `${v}°C${p.payload.is_excursion ? ' ⚠ EXCURSION' : ''}`, 'Temperature'
-                      ]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} unit="°C" domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: 12 }}
+                        formatter={(v: number) => [`${v}°C`, 'Temperature']}
+                      />
+                      {/* Safe range bands */}
                       {selected.temp_max_c !== null && (
-                        <ReferenceLine y={selected.temp_max_c} stroke="var(--red)" strokeDasharray="4 2"
-                          label={{ value: `Max ${selected.temp_max_c}°C`, fill: 'var(--red)', fontSize: 9, position: 'insideTopRight' }} />
+                        <ReferenceLine
+                          y={selected.temp_max_c}
+                          stroke="#ef4444"
+                          strokeDasharray="5 3"
+                          label={{ value: `Max ${selected.temp_max_c}°C`, fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
+                        />
                       )}
                       {selected.temp_min_c !== null && (
-                        <ReferenceLine y={selected.temp_min_c} stroke="var(--amber)" strokeDasharray="4 2"
-                          label={{ value: `Min ${selected.temp_min_c}°C`, fill: 'var(--amber)', fontSize: 9, position: 'insideBottomRight' }} />
+                        <ReferenceLine
+                          y={selected.temp_min_c}
+                          stroke="#f59e0b"
+                          strokeDasharray="5 3"
+                          label={{ value: `Min ${selected.temp_min_c}°C`, fill: '#f59e0b', fontSize: 10, position: 'insideBottomRight' }}
+                        />
                       )}
-                      <Area type="monotone" dataKey="temperature_c" stroke="var(--accent)" fill="url(#tempGrad)" strokeWidth={1.5}
+                      <Area
+                        type="monotone"
+                        dataKey="temperature_c"
+                        stroke="#3b82f6"
+                        fill="url(#tempGrad)"
+                        strokeWidth={2}
                         dot={(props: any) => {
                           const { cx, cy, payload, index } = props
-                          if (!payload.is_excursion) return <circle key={`d-${index}`} cx={cx} cy={cy} r={2.5} fill="var(--accent)" stroke="none" />
-                          return <circle key={`e-${index}`} cx={cx} cy={cy} r={4.5} fill="var(--red)" stroke="rgba(244,63,63,0.4)" strokeWidth={2} />
+                          if (!payload.is_excursion) return <circle key={`dot-${index}`} cx={cx} cy={cy} r={3} fill="#3b82f6" stroke="none" />
+                          return <circle key={`exc-${index}`} cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#fca5a5" strokeWidth={1.5} />
                         }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center" style={{ height: 120, color: 'var(--text-muted)', fontSize: 12 }}>
-                    No telemetry data available
-                  </div>
-                )}
-
-                {logs.length > 0 && (
-                  <div className="flex items-center gap-4" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)', fontSize: 10, color: 'var(--text-muted)' }}>
-                    <span>{logs.length} readings</span>
-                    <span>·</span>
-                    <span style={{ color: logs.filter((l: any) => l.is_excursion).length > 0 ? 'var(--red)' : 'var(--green)' }}>
-                      {logs.filter((l: any) => l.is_excursion).length} excursion point{logs.filter((l: any) => l.is_excursion).length !== 1 ? 's' : ''}
-                    </span>
-                    {logs[logs.length - 1]?.humidity_pct != null && (
-                      <>
-                        <span>·</span>
-                        <span>Humidity: {logs[logs.length - 1].humidity_pct}%</span>
-                      </>
-                    )}
-                  </div>
+                  <div className="h-40 flex items-center justify-center text-slate-500 text-sm">No telemetry data</div>
                 )}
               </div>
 
               {/* Excursion events */}
-              {(() => {
-                const shipEx = excursions.filter((e) => e.shipment_id === selected.id)
-                if (shipEx.length === 0) return null
-                return (
-                  <div className="card" style={{ padding: '12px 14px' }}>
-                    <p className="section-label" style={{ marginBottom: 8 }}>
-                      Excursion Events — {shipEx.length} recorded
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {shipEx.map((e) => (
-                        <div key={e.id} style={{ padding: '8px 10px', background: 'var(--red-dim)', border: '1px solid var(--red-border)', borderRadius: 5 }}>
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span style={{ fontSize: 10, fontWeight: 700, color: e.excursion_severity === 'critical' ? 'var(--red)' : 'var(--orange)', letterSpacing: '0.06em' }}>
-                              {(e.excursion_severity ?? 'unknown').toUpperCase()} EXCURSION
-                            </span>
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                              {format(new Date(e.timestamp), 'dd MMM yyyy HH:mm')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3" style={{ marginTop: 4, fontSize: 11 }}>
-                            <span>Temp: <span style={{ color: 'var(--red)', fontWeight: 700 }}>{e.temperature_c}°C</span></span>
-                            {e.required_max_c && <span style={{ color: 'var(--text-muted)' }}>Limit: {e.required_min_c}–{e.required_max_c}°C</span>}
-                            {e.humidity_pct && <span style={{ color: 'var(--text-muted)' }}>Humidity: {e.humidity_pct}%</span>}
-                          </div>
+              {excursions.filter((e) => e.shipment_id === selected.id).length > 0 && (
+                <div className="card p-4">
+                  <h3 className="text-sm font-semibold text-slate-200 mb-3">Excursion Events</h3>
+                  <div className="space-y-2">
+                    {excursions.filter((e) => e.shipment_id === selected.id).map((e) => (
+                      <div key={e.id} className="flex items-start gap-3 p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <AlertTriangle size={12} className="text-red-400 mt-0.5 shrink-0" />
+                        <div className="text-xs">
+                          <span className={cn('font-semibold', excursionColor(e.excursion_severity || ''))}>
+                            {e.excursion_severity?.toUpperCase()} EXCURSION
+                          </span>
+                          <span className="text-slate-400 ml-2">
+                            {format(new Date(e.timestamp), 'dd MMM HH:mm')}
+                          </span>
+                          <span className="text-slate-300 ml-2">
+                            {e.temperature_c}°C
+                            {e.required_max_c && ` (max: ${e.required_max_c}°C)`}
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                )
-              })()}
-
-              {/* AI Analysis */}
-              <div className="card" style={{ padding: '12px 14px', borderColor: 'rgba(139,92,246,0.25)', background: 'rgba(139,92,246,0.03)' }}>
-                <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={12} style={{ color: '#a78bfa' }} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.06em' }}>AI COLD-CHAIN ANALYSIS</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setAiAnalysis(null)
-                      setAiLoading(true)
-                      apiClient.getColdChainAnalysis(selected.id)
-                        .then(r => { setAiAnalysis(r.data); setAiLoading(false) })
-                        .catch(() => setAiLoading(false))
-                    }}
-                    disabled={aiLoading || !selected.in_excursion}
-                    className="btn-primary"
-                    style={{ background: aiLoading || !selected.in_excursion ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.8)', color: '#e9d5ff', fontSize: 11 }}
-                    title={selected.in_excursion ? 'Analyse excursion' : 'Only available during an active excursion'}
-                  >
-                    {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                    {aiLoading ? 'Analysing…' : 'Analyse'}
-                  </button>
                 </div>
-                {aiAnalysis ? (
-                  <div>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>{aiAnalysis.text}</p>
-                    <p style={{ fontSize: 9, color: 'var(--text-faint)', marginTop: 6 }}>
-                      {!aiAnalysis.fallback ? 'Google Gemini · gemini-3.6-flash' : aiAnalysis.configured ? 'Rule-based (Gemini error — check key)' : 'Rule-based fallback · add GEMINI_API_KEY'}
-                    </p>
+              )}
+
+              {/* AI Cold-Chain Analysis */}
+              {selected.in_excursion && (
+                <div className="card p-4 border-violet-600/30 bg-violet-600/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={13} className="text-violet-400" />
+                      <span className="text-xs font-semibold text-violet-300">AI Excursion Analysis</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAiAnalysis(null)
+                        setAiLoading(true)
+                        apiClient.getColdChainAnalysis(selected.id)
+                          .then(r => { setAiAnalysis(r.data); setAiLoading(false) })
+                          .catch(() => setAiLoading(false))
+                      }}
+                      disabled={aiLoading}
+                      className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      {aiLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                      {aiLoading ? 'Analysing…' : 'Analyse Excursion'}
+                    </button>
                   </div>
-                ) : (
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {selected.in_excursion
-                      ? 'Click "Analyse" to get an AI assessment of product integrity and recommended corrective actions.'
-                      : 'No active excursion on this shipment. Analysis available when a temperature breach is detected.'}
-                  </p>
-                )}
-              </div>
+                  {aiAnalysis ? (
+                    <div>
+                      <p className="text-sm text-slate-200 leading-relaxed">{aiAnalysis.text}</p>
+                      <p className="text-[10px] text-slate-600 mt-2">
+                        {aiAnalysis.configured ? 'IBM Granite · watsonx.ai' : 'Rule-based · add WATSONX_API_KEY to enable live AI'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">Click "Analyse Excursion" to get an AI assessment of product integrity and recommended actions.</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
